@@ -55,4 +55,24 @@ struct ConfigExplorer {
             return .none
         }
     }
+    func explorerName(for server: RPCServer) -> String? {
+        switch server {
+        case .main, .kovan, .ropsten, .rinkeby, .goerli:
+            return "Etherscan"
+        case .classic:
+            return "Gastracker"
+        case .poa:
+            return "POA Explorer"
+        case .custom, .callisto:
+            return nil
+        case .sokol:
+            return "Sokol Explorer"
+        case .xDai:
+            return "BlockScout"
+        case .artis_sigma1:
+            return "Artis"
+        case .artis_tau1:
+            return "ARTIS"
+        }
+    }
 }

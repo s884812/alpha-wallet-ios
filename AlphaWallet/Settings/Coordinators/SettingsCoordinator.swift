@@ -28,9 +28,19 @@ class SettingsCoordinator: Coordinator {
 	weak var delegate: SettingsCoordinatorDelegate?
 	var coordinators: [Coordinator] = []
 
-	lazy var rootViewController: SettingsViewController = {
-		let controller = SettingsViewController(keystore: keystore, account: account)
-		controller.delegate = self
+    lazy var rootViewController2: SettingsViewController2 = {
+		let controller = SettingsViewController2.init(keystore: keystore, account: account)
+		//hhh need?
+		//let controller = SettingsViewController(keystore: keystore, account: account)
+		//controller.delegate = self
+		controller.modalPresentationStyle = .pageSheet
+		return controller
+    }()
+
+	lazy var rootViewController: SettingsViewController3 = {
+		let controller = SettingsViewController3(keystore: keystore, account: account)
+		//hhh restore
+		//controller.delegate = self
 		controller.modalPresentationStyle = .pageSheet
 		return controller
 	}()
@@ -225,7 +235,8 @@ extension SettingsCoordinator: PromptBackupCoordinatorSubtlePromptDelegate {
 	}
 
 	func updatePrompt(inCoordinator coordinator: PromptBackupCoordinator) {
-		rootViewController.promptBackupWalletView = coordinator.subtlePromptView
+		//hhh restore
+		//rootViewController.promptBackupWalletView = coordinator.subtlePromptView
 	}
 }
 
