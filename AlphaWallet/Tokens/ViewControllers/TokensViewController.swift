@@ -9,6 +9,7 @@ protocol TokensViewControllerDelegate: class {
     func didSelect(token: TokenObject, in viewController: UIViewController)
     func didHide(token: TokenObject, in viewController: UIViewController)
     func didTapOpenConsole(in viewController: UIViewController)
+    func scanQRCodeSelected(in viewController: UIViewController)
 }
 
 class TokensViewController: UIViewController {
@@ -205,6 +206,8 @@ class TokensViewController: UIViewController {
         refreshView(viewModel: viewModel)
 
         setupFilteringWithKeyword()
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem.qrCodeBarButton(self, selector: #selector(scanQRCodeButtonSelected))
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -215,6 +218,10 @@ class TokensViewController: UIViewController {
         
         fetch()
         fixNavigationBarAndStatusBarBackgroundColorForiOS13Dot1()
+    }
+
+    @objc func scanQRCodeButtonSelected(_ sender: UIBarButtonItem) {
+        delegate?.scanQRCodeSelected(in: self)
     }
 
     @objc func pullToRefresh() {
@@ -469,7 +476,7 @@ extension TokensViewController: SegmentedControlDelegate {
             //do nothing
         } else {
             switch filter {
-            case .all, .currencyOnly, .assetsOnly, .collectiblesOnly:
+            case .all, .currencyOnly, .assetsOnly, .collectiblesOnly, .type:
                 searchController.isActive = false
             case .keyword:
                 break
@@ -489,7 +496,7 @@ extension TokensViewController: UICollectionViewDataSource {
         switch viewModel.filter {
         case .collectiblesOnly:
             return viewModel.numberOfItems()
-        case .all, .currencyOnly, .assetsOnly, .keyword:
+        case .all, .currencyOnly, .assetsOnly, .keyword, .type:
             return 0
         }
     }
@@ -535,7 +542,7 @@ extension TokensViewController: UISearchResultsUpdating {
         }
         guard searchController.isActive else {
             switch viewModel.filter {
-            case .all, .currencyOnly, .assetsOnly, .collectiblesOnly:
+            case .all, .currencyOnly, .assetsOnly, .collectiblesOnly, .type:
                 break
             case .keyword:
                 //Handle when user taps Cancel button to stop search
@@ -614,5 +621,11 @@ extension TokensViewController {
 extension TokensViewController: ShowAddHideTokensViewDelegate {
     func view(_ view: ShowAddHideTokensView, didSelectAddHideTokensButton sender: UIButton) {
         delegate?.didPressAddHideTokens(viewModel: viewModel)
+    }
+}
+
+extension UIBarButtonItem {
+    static func qrCodeBarButton(_ target: AnyObject, selector: Selector) -> UIBarButtonItem {
+        return .init(image: R.image.qr_code_icon(), style: .plain, target: target, action: selector)
     }
 }

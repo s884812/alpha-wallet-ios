@@ -19,6 +19,8 @@ class FilterTokensCoordinator {
         switch filter {
         case .all:
             filteredTokens = tokens
+        case .type(let type):
+            filteredTokens = tokens.filter { $0.type == type }
         case .currencyOnly:
             filteredTokens = tokens.filter { $0.type == .nativeCryptocurrency || $0.type == .erc20 }
         case .assetsOnly:

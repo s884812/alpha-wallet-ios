@@ -63,7 +63,7 @@ class TokensCoordinator: Coordinator {
     }()
 
     private var addressToAutoDetectServerFor: AlphaWallet.Address?
-
+    private var sendToAddressState: SendToAddressState = .none
     private var singleChainTokenCoordinators: [SingleChainTokenCoordinator] {
         return coordinators.compactMap { $0 as? SingleChainTokenCoordinator }
     }
@@ -189,11 +189,163 @@ extension TokensCoordinator: TokensViewControllerDelegate {
     func didTapOpenConsole(in viewController: UIViewController) {
         delegate?.openConsole(inCoordinator: self)
     }
+
+    func scanQRCodeSelected(in viewController: UIViewController) {
+        let coordinator = ScanQRCodeCoordinator(navigationController: navigationController, configuration: .resolution(tokensDatastores: tokenCollection.tokenDataStores, assetDefinitionStore: assetDefinitionStore))
+        coordinator.delegate = self
+        coordinator.resolutionDelegate = self
+
+        addCoordinator(coordinator)
+        coordinator.start()
+    }
 }
 
 func -<T: Equatable>(left: [T], right: [T]) -> [T] {
     return left.filter { l in
         !right.contains { $0 == l }
+    }
+}
+
+extension TokensCoordinator: ScanQRCodeCoordinatorDelegate {
+
+    func didCancel(in coordinator: ScanQRCodeCoordinator) {
+        removeCoordinator(coordinator)
+    }
+
+    func didScan(result: String, in coordinator: ScanQRCodeCoordinator) {
+        coordinator.resolveScanResult(result)
+    }
+}
+
+extension TokensCoordinator: SelectAssetCoordinatorDelegate {
+
+    func coordinator(_ coordinator: SelectAssetCoordinator, didSelectToken token: TokenObject) {
+        removeCoordinator(coordinator)
+
+        switch sendToAddressState {
+        case .pending(let address):
+            let paymantFlow = PaymentFlow.send(type: .init(token: token, recipient: .address(address), amount: nil))
+
+            delegate?.didPress(for: paymantFlow, server: token.server, in: self)
+        case .none:
+            break
+        }
+    }
+
+    func selectAssetDidCancel(in coordinator: SelectAssetCoordinator) {
+        removeCoordinator(coordinator)
+    }
+}
+
+extension TokensCoordinator: ScanQRCodeCoordinatorResolutionDelegate {
+
+    func coordinator(_ coordinator: ScanQRCodeCoordinator, didResolveTransferType transferType: TransferType, token: TokenObject) {
+        removeCoordinator(coordinator)
+
+        let paymantFlow = PaymentFlow.send(type: transferType)
+
+        delegate?.didPress(for: paymantFlow, server: token.server, in: self)
+    }
+
+    func coordinator(_ coordinator: ScanQRCodeCoordinator, didResolveAddress address: AlphaWallet.Address, action: ScanQRCodeAction) {
+        removeCoordinator(coordinator)
+
+        switch action {
+        case .addCustomToken:
+            handleAddCustomToken(address)
+        case .sendToAddress:
+            handleSendToAddress(address)
+        case .watchWallet:
+            handleWatchWallet(address)
+        case .openInEtherscan:
+            delegate?.didPressViewContractWebPage(forContract: address, server: .main, in: tokensViewController)
+        }
+    }
+
+    private func handleAddCustomToken(_ address: AlphaWallet.Address) {
+        let coordinator = NewTokenCoordinator(
+            navigationController: navigationController,
+            tokenCollection: tokenCollection,
+            config: config,
+            singleChainTokenCoordinators: singleChainTokenCoordinators,
+            initialState: .address(address)
+        )
+        coordinator.delegate = self
+        addCoordinator(coordinator)
+
+        coordinator.start()
+    }
+
+    private enum SendToAddressState {
+        case pending(address: AlphaWallet.Address)
+        case none
+    }
+
+    private func handleSendToAddress(_ address: AlphaWallet.Address) {
+        sendToAddressState = .pending(address: address)
+
+        let coordinator = SelectAssetCoordinator(
+            assetDefinitionStore: assetDefinitionStore,
+            sessions: sessions,
+            tokenCollection: tokenCollection,
+            navigationController: navigationController
+        )
+        coordinator.delegate = self
+        addCoordinator(coordinator)
+
+        coordinator.start()
+    }
+
+    private func handleWatchWallet(_ address: AlphaWallet.Address) {
+        let walletCoordinator = WalletCoordinator(config: config, keystore: keystore, analyticsCoordinator: analyticsCoordinator)
+        walletCoordinator.delegate = self
+
+        addCoordinator(walletCoordinator)
+
+        walletCoordinator.start(.watchWallet(address: address))
+        walletCoordinator.navigationController.makePresentationFullScreenForiOS13Migration()
+
+        navigationController.present(walletCoordinator.navigationController, animated: true)
+    }
+
+    func coordinator(_ coordinator: ScanQRCodeCoordinator, didResolveURL url: URL) {
+        removeCoordinator(coordinator)
+
+        delegate?.didPressOpenWebPage(url, in: tokensViewController)
+    }
+
+    func coordinator(_ coordinator: ScanQRCodeCoordinator, didResolveWalletConnectURL url: WCURL) {
+        removeCoordinator(coordinator)
+    }
+
+    func coordinator(_ coordinator: ScanQRCodeCoordinator, didResolveString value: String) {
+        removeCoordinator(coordinator)
+    }
+}
+
+extension TokensCoordinator: NewTokenCoordinatorDelegate {
+
+    func coordinator(_ coordinator: NewTokenCoordinator, didAddToken token: TokenObject) {
+        removeCoordinator(coordinator)
+    }
+
+    func didClose(in coordinator: NewTokenCoordinator) {
+        removeCoordinator(coordinator)
+    }
+}
+
+extension TokensCoordinator: WalletCoordinatorDelegate {
+
+    func didFinish(with account: Wallet, in coordinator: WalletCoordinator) {
+        removeCoordinator(coordinator)
+
+        coordinator.navigationController.dismiss(animated: true)
+    }
+
+    func didCancel(in coordinator: WalletCoordinator) {
+        removeCoordinator(coordinator)
+
+        coordinator.navigationController.dismiss(animated: true)
     }
 }
 
